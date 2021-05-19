@@ -15,6 +15,7 @@ import (
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"github.com/disintegration/imaging"
 	"go.uber.org/zap"
+	_ "golang.org/x/image/webp"
 )
 
 var (
@@ -35,7 +36,7 @@ type ImageFilter struct {
 	// should have a corresponding entry in the Filters map.
 	FilterOrder []string `json:"filterOrder,omitempty"`
 
-	// Root ise path to the root of the site. Default is `{http.vars.root}` if set, or current
+	// Root is the path to the root of the site. Default is `{http.vars.root}` if set, or current
 	// working directory otherwise.
 	Root string `json:"root,omitempty"`
 
@@ -177,19 +178,18 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 
 	_, err := os.Stat(filename)
 	if err != nil {
-		return next.ServeHTTP(w, r)
+		return caddyhttp.Error(http.StatusNotFound, err)
 	}
 	file, err := os.Open(filename)
 	if err != nil {
-		img.logger.Warn("decoding of image failed", zap.Error(err))
-		return next.ServeHTTP(w, r)
+		return caddyhttp.Error(http.StatusNotFound, err)
 	}
 	defer file.Close()
 
 	reqImg, formatName, err := image.Decode(file)
 	if err != nil {
-		img.logger.Warn("decoding of image failed", zap.Error(err))
-		return next.ServeHTTP(w, r)
+		// img.logger.Warn("decoding of image failed", zap.Error(err))
+		return caddyhttp.Error(http.StatusUnsupportedMediaType, err)
 	}
 
 	for _, filterName := range img.FilterOrder {
@@ -204,9 +204,9 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 
 	format, err := imaging.FormatFromExtension(formatName)
 	if err != nil {
-		img.logger.Info("not supported format, falling back to jpeg", zap.String("format", formatName))
-		format = imaging.JPEG
-		formatName = "jpg"
+		img.logger.Info("not supported format, falling back to png", zap.String("format", formatName))
+		format = imaging.PNG
+		formatName = "png"
 	}
 
 	if w.Header().Get("Content-Type") == "" {
