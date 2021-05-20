@@ -12,17 +12,17 @@ import (
 	imagefilter "github.com/ueffel/caddy-imagefilter"
 )
 
-type CropFilterFactory struct{}
+type CropFactory struct{}
 
-type CropFilter struct {
+type Crop struct {
 	Width  string `json:"width,omitempty"`
 	Height string `json:"height,omitempty"`
 	Anchor string `json:"anchor,omitempty"`
 }
 
-func (ff CropFilterFactory) Name() string { return "crop" }
+func (ff CropFactory) Name() string { return "crop" }
 
-func (ff CropFilterFactory) New(args ...string) (imagefilter.Filter, error) {
+func (ff CropFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) < 2 {
 		return nil, errors.New("too few arguments")
 	}
@@ -37,15 +37,15 @@ func (ff CropFilterFactory) New(args ...string) (imagefilter.Filter, error) {
 		anchor = args[2]
 	}
 
-	return CropFilter{
+	return Crop{
 		Width:  args[0],
 		Height: args[1],
 		Anchor: anchor,
 	}, nil
 }
 
-func (ff CropFilterFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := CropFilter{}
+func (ff CropFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
+	filter := Crop{}
 	err := json.Unmarshal(data, &filter)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (ff CropFilterFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
 	return filter, nil
 }
 
-func (f CropFilter) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f Crop) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var width int
 	widthRepl := repl.ReplaceAll(f.Width, "")
@@ -104,11 +104,11 @@ func (f CropFilter) Apply(repl *caddy.Replacer, img image.Image) (image.Image, e
 }
 
 func init() {
-	imagefilter.Register(CropFilterFactory{})
+	imagefilter.Register(CropFactory{})
 }
 
 // Interface Guards
 var (
-	_ imagefilter.FilterFactory = (*CropFilterFactory)(nil)
-	_ imagefilter.Filter        = (*CropFilter)(nil)
+	_ imagefilter.FilterFactory = (*CropFactory)(nil)
+	_ imagefilter.Filter        = (*Crop)(nil)
 )

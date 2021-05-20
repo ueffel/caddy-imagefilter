@@ -12,19 +12,19 @@ import (
 	imagefilter "github.com/ueffel/caddy-imagefilter"
 )
 
-// SharpenFilterFactory creates SharpenFilter instances.
-type SharpenFilterFactory struct{}
+// SharpenFactory creates SharpenFilter instances.
+type SharpenFactory struct{}
 
-// SharpenFilter produces a sharpened version of the image.
-type SharpenFilter struct {
+// Sharpen produces a sharpened version of the image.
+type Sharpen struct {
 	Sigmna string `json:"sigma,omitempty"`
 }
 
 // Name retrurns the name if the filter, which is also the directive used in the image filter block.
-func (ff SharpenFilterFactory) Name() string { return "sharpen" }
+func (ff SharpenFactory) Name() string { return "sharpen" }
 
 // New intitialises and returns a SharpenFilter instance.
-func (ff SharpenFilterFactory) New(args ...string) (imagefilter.Filter, error) {
+func (ff SharpenFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) > 1 {
 		return nil, errors.New("too many arguments")
 	}
@@ -32,12 +32,12 @@ func (ff SharpenFilterFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) == 1 {
 		sigma = args[0]
 	}
-	return SharpenFilter{Sigmna: sigma}, nil
+	return Sharpen{Sigmna: sigma}, nil
 }
 
 // Unmarshal decodes JSON data and returns a SharpenFilter instance.
-func (ff SharpenFilterFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := SharpenFilter{}
+func (ff SharpenFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
+	filter := Sharpen{}
 	err := json.Unmarshal(data, &filter)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (ff SharpenFilterFactory) Unmarshal(data []byte) (imagefilter.Filter, error
 	return filter, nil
 }
 
-func (f SharpenFilter) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f Sharpen) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var sigma float64
 	sigmaRepl := repl.ReplaceAll(f.Sigmna, "")
@@ -66,11 +66,11 @@ func (f SharpenFilter) Apply(repl *caddy.Replacer, img image.Image) (image.Image
 }
 
 func init() {
-	imagefilter.Register(SharpenFilterFactory{})
+	imagefilter.Register(SharpenFactory{})
 }
 
 // Interface Guards
 var (
-	_ imagefilter.FilterFactory = (*SharpenFilterFactory)(nil)
-	_ imagefilter.Filter        = (*SharpenFilter)(nil)
+	_ imagefilter.FilterFactory = (*SharpenFactory)(nil)
+	_ imagefilter.Filter        = (*Sharpen)(nil)
 )

@@ -120,12 +120,14 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 				if !ok {
 					return nil, h.Errf("unrecognized subdirective or filter '%s'", h.Val())
 				}
+				factoryName := factory.Name()
+
 				filter, err := factory.New(h.RemainingArgs()...)
 				if err != nil {
-					return nil, err
+					return nil, h.Errf("%s: %v", factoryName, err)
 				}
 
-				filterName := fmt.Sprintf("%04d_%s", filterIndex, factory.Name())
+				filterName := fmt.Sprintf("%04d_%s", filterIndex, factoryName)
 				filters[filterName] = filter
 				filterOrder = append(filterOrder, filterName)
 				filterIndex++

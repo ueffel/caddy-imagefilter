@@ -12,26 +12,26 @@ import (
 	imagefilter "github.com/ueffel/caddy-imagefilter"
 )
 
-type RotateFilterFactory struct{}
+type RotateFactory struct{}
 
-type RotateFilter struct {
+type Rotate struct {
 	Angle string `json:"angle,omitempty"`
 }
 
-func (ff RotateFilterFactory) Name() string { return "rotate" }
+func (ff RotateFactory) Name() string { return "rotate" }
 
-func (ff RotateFilterFactory) New(args ...string) (imagefilter.Filter, error) {
+func (ff RotateFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) < 1 {
 		return nil, errors.New("too few arguments")
 	}
 	if len(args) > 1 {
 		return nil, errors.New("too many arguments")
 	}
-	return RotateFilter{Angle: args[0]}, nil
+	return Rotate{Angle: args[0]}, nil
 }
 
-func (ff RotateFilterFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := RotateFilter{}
+func (ff RotateFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
+	filter := Rotate{}
 	err := json.Unmarshal(data, &filter)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (ff RotateFilterFactory) Unmarshal(data []byte) (imagefilter.Filter, error)
 	return filter, nil
 }
 
-func (f RotateFilter) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f Rotate) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	angleRepl := repl.ReplaceAll(f.Angle, "")
 	angle, err := strconv.Atoi(angleRepl)
 	if err != nil {
@@ -61,11 +61,11 @@ func (f RotateFilter) Apply(repl *caddy.Replacer, img image.Image) (image.Image,
 }
 
 func init() {
-	imagefilter.Register(RotateFilterFactory{})
+	imagefilter.Register(RotateFactory{})
 }
 
 // Interface Guards
 var (
-	_ imagefilter.FilterFactory = (*RotateFilterFactory)(nil)
-	_ imagefilter.Filter        = (*RotateFilter)(nil)
+	_ imagefilter.FilterFactory = (*RotateFactory)(nil)
+	_ imagefilter.Filter        = (*Rotate)(nil)
 )

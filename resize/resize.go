@@ -12,33 +12,33 @@ import (
 	imagefilter "github.com/ueffel/caddy-imagefilter"
 )
 
-// ResizeFilterFactory creates ResizeFilter instances
-type ResizeFilterFactory struct{}
+// ResizeFactory creates ResizeFilter instances
+type ResizeFactory struct{}
 
-// ResizeFilter can downsize images. If upsizing of an image is detected, nothing will be done and
+// Resize can downsize images. If upsizing of an image is detected, nothing will be done and
 // the input image is returned unchanged
-type ResizeFilter struct {
+type Resize struct {
 	Width  string `json:"width,omitempty"`
 	Height string `json:"height,omitempty"`
 }
 
 // Name retrurns the name if the filter, which is also the directive used in the image filter block
-func (ff ResizeFilterFactory) Name() string { return "resize" }
+func (ff ResizeFactory) Name() string { return "resize" }
 
 // New intitialises and returns a ResizeFilter instance.
-func (ff ResizeFilterFactory) New(args ...string) (imagefilter.Filter, error) {
+func (ff ResizeFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) < 2 {
 		return nil, errors.New("too few arguments")
 	}
 	if len(args) > 2 {
 		return nil, errors.New("too many arguments")
 	}
-	return ResizeFilter{Width: args[0], Height: args[1]}, nil
+	return Resize{Width: args[0], Height: args[1]}, nil
 }
 
 // Unmarshal decodes JSON data and returns a ResizeFilter instance.
-func (ff ResizeFilterFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := ResizeFilter{}
+func (ff ResizeFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
+	filter := Resize{}
 	err := json.Unmarshal(data, &filter)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (ff ResizeFilterFactory) Unmarshal(data []byte) (imagefilter.Filter, error)
 
 // Apply does the resizing of an image. If upsizing of an image is detected, nothing will be done
 // and the input image is returned unchanged
-func (f ResizeFilter) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f Resize) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var width int
 	widthRepl := repl.ReplaceAll(f.Width, "")
@@ -86,11 +86,11 @@ func (f ResizeFilter) Apply(repl *caddy.Replacer, img image.Image) (image.Image,
 }
 
 func init() {
-	imagefilter.Register(ResizeFilterFactory{})
+	imagefilter.Register(ResizeFactory{})
 }
 
 // Interface Guards
 var (
-	_ imagefilter.FilterFactory = (*ResizeFilterFactory)(nil)
-	_ imagefilter.Filter        = (*ResizeFilter)(nil)
+	_ imagefilter.FilterFactory = (*ResizeFactory)(nil)
+	_ imagefilter.Filter        = (*Resize)(nil)
 )
