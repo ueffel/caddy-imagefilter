@@ -2,12 +2,16 @@ package imagefilter
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
+	"image/jpeg"
+	"image/png"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"github.com/caddyserver/caddy/v2"
@@ -34,11 +38,17 @@ type ImageFilter struct {
 
 	// FilterOrder is a slice of strings in the form "<position>_<image filter name>". Each entry
 	// should have a corresponding entry in the Filters map.
-	FilterOrder []string `json:"filterOrder,omitempty"`
+	FilterOrder []string `json:"filter_order,omitempty"`
 
 	// Root is the path to the root of the site. Default is `{http.vars.root}` if set, or current
 	// working directory otherwise.
 	Root string `json:"root,omitempty"`
+
+	JpegQuality int `json:"jpeg_quality,omitempty"`
+
+	PngCompression int `json:"png_compression,omitempty"`
+
+	encodingOpts []imaging.EncodeOption
 
 	logger *zap.Logger
 }
@@ -115,18 +125,38 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 					return nil, h.ArgErr()
 				}
 
+			case "jpeg_quality":
+				args := h.RemainingArgs()
+				if len(args) != 1 {
+					return nil, h.ArgErr()
+				}
+				q, err := strconv.Atoi(args[0])
+				if err != nil {
+					return nil, h.Errf("invalid jpeg_quality: %v", err)
+				}
+				img.JpegQuality = q
+
+			case "png_compression":
+				args := h.RemainingArgs()
+				if len(args) != 1 {
+					return nil, h.ArgErr()
+				}
+				q, err := strconv.Atoi(args[0])
+				if err != nil {
+					return nil, h.Errf("invalid png_compression: %v", err)
+				}
+				img.PngCompression = q
+
 			default:
 				factory, ok := registeredFilter[h.Val()]
 				if !ok {
 					return nil, h.Errf("unrecognized subdirective or filter '%s'", h.Val())
 				}
 				factoryName := factory.Name()
-
 				filter, err := factory.New(h.RemainingArgs()...)
 				if err != nil {
 					return nil, h.Errf("%s: %v", factoryName, err)
 				}
-
 				filterName := fmt.Sprintf("%04d_%s", filterIndex, factoryName)
 				filters[filterName] = filter
 				filterOrder = append(filterOrder, filterName)
@@ -147,6 +177,14 @@ func (img *ImageFilter) Provision(ctx caddy.Context) error {
 	if img.Root == "" {
 		img.Root = "{http.vars.root}"
 	}
+
+	if img.JpegQuality == 0 {
+		img.JpegQuality = jpeg.DefaultQuality
+	}
+	img.encodingOpts = append(img.encodingOpts, imaging.JPEGQuality(img.JpegQuality))
+
+	img.encodingOpts = append(img.encodingOpts, imaging.PNGCompressionLevel(png.CompressionLevel(img.PngCompression)))
+
 	return nil
 }
 
@@ -161,6 +199,14 @@ func (img *ImageFilter) Validate() error {
 		if _, ok := img.Filters[filterName]; !ok {
 			return fmt.Errorf("no image filter '%s' configured", filterName)
 		}
+	}
+
+	if img.JpegQuality <= 0 || img.JpegQuality > 100 {
+		return errors.New("jpeg_quality must be between 1 and 100")
+	}
+
+	if img.PngCompression > 0 || img.PngCompression < -3 {
+		return errors.New("png_compression must be between -3 and 0")
 	}
 
 	return nil
@@ -222,7 +268,7 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 		}
 	}
 
-	err = imaging.Encode(w, reqImg, format)
+	err = imaging.Encode(w, reqImg, format, img.encodingOpts...)
 	if err != nil {
 		img.logger.Error("failed to encode image", zap.Error(err))
 	}
@@ -236,7 +282,7 @@ type FilterFactory interface {
 	// block. It should be in lower case.
 	Name() string
 
-	// New intitialises and returns the image filter instance.
+	// New initialises and returns the image filter instance.
 	New(...string) (Filter, error)
 
 	// Unmarshal decodes JSON configuration and returns the corresponding image filter instance.
