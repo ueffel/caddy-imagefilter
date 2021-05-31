@@ -2,7 +2,6 @@ package resize
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"image"
 	"strconv"
@@ -12,31 +11,43 @@ import (
 	imagefilter "github.com/ueffel/caddy-imagefilter"
 )
 
-// ResizeFactory creates ResizeFilter instances
+// ResizeFactory creates Resize instances.
 type ResizeFactory struct{}
 
 // Resize can downsize images. If upsizing of an image is detected, nothing will be done and
-// the input image is returned unchanged
+// the input image is returned unchanged.
 type Resize struct {
 	Width  string `json:"width,omitempty"`
 	Height string `json:"height,omitempty"`
 }
 
-// Name retrurns the name if the filter, which is also the directive used in the image filter block
+// Name returns the name of the filter, which is also the directive used in the image filter block.
 func (ff ResizeFactory) Name() string { return "resize" }
 
-// New intitialises and returns a ResizeFilter instance.
+// New initialises and returns a ResizeFilter instance.
+//
+// Syntax:
+//
+//    resize <width> <height>
+//
+// Parameters:
+//
+// width must be a positive integer and determines the maximum width.
+//
+// height must be a positive integer and determines the maximum height.
+//
+// Either width or height can be 0, then the image aspect ratio is preserved.
 func (ff ResizeFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) < 2 {
-		return nil, errors.New("too few arguments")
+		return nil, imagefilter.ErrTooFewArgs
 	}
 	if len(args) > 2 {
-		return nil, errors.New("too many arguments")
+		return nil, imagefilter.ErrTooManyArgs
 	}
 	return Resize{Width: args[0], Height: args[1]}, nil
 }
 
-// Unmarshal decodes JSON data and returns a ResizeFilter instance.
+// Unmarshal decodes JSON data and returns a Resize instance.
 func (ff ResizeFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
 	filter := Resize{}
 	err := json.Unmarshal(data, &filter)
@@ -46,8 +57,7 @@ func (ff ResizeFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
 	return filter, nil
 }
 
-// Apply does the resizing of an image. If upsizing of an image is detected, nothing will be done
-// and the input image is returned unchanged
+// Apply applies the image filter to an image and returns the new image.
 func (f Resize) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var width int
@@ -57,7 +67,7 @@ func (f Resize) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error
 	} else {
 		width, err = strconv.Atoi(widthRepl)
 		if err != nil {
-			return img, fmt.Errorf("invalid width: %v", err)
+			return img, fmt.Errorf("invalid width: %w", err)
 		}
 	}
 	var height int
@@ -67,7 +77,7 @@ func (f Resize) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error
 	} else {
 		height, err = strconv.Atoi(heightRepl)
 		if err != nil {
-			return img, fmt.Errorf("invalid height: %v", err)
+			return img, fmt.Errorf("invalid height: %w", err)
 		}
 	}
 
@@ -85,11 +95,12 @@ func (f Resize) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error
 	return imaging.Resize(img, width, height, imaging.Linear), nil
 }
 
+// init registers the image filter.
 func init() {
 	imagefilter.Register(ResizeFactory{})
 }
 
-// Interface Guards
+// Interface guards.
 var (
 	_ imagefilter.FilterFactory = (*ResizeFactory)(nil)
 	_ imagefilter.Filter        = (*Resize)(nil)

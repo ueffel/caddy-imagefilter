@@ -25,6 +25,9 @@ import (
 var (
 	registeredFilterMu sync.RWMutex
 	registeredFilter   = make(map[string]FilterFactory)
+
+	ErrTooFewArgs  = errors.New("too few arguments")
+	ErrTooManyArgs = errors.New("too many arguments")
 )
 
 // ImageFilter is a caddy module that can apply image filters to images from the filesystem at
@@ -70,6 +73,7 @@ func Register(factory FilterFactory) {
 	registeredFilter[name] = factory
 }
 
+// init registers the caddy module and the image_filter directive.
 func init() {
 	httpcaddyfile.RegisterHandlerDirective("image_filter", parseCaddyfile)
 	caddy.RegisterModule(ImageFilter{})
@@ -132,7 +136,7 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 				}
 				q, err := strconv.Atoi(args[0])
 				if err != nil {
-					return nil, h.Errf("invalid jpeg_quality: %v", err)
+					return nil, h.Errf("invalid jpeg_quality: %w", err)
 				}
 				img.JpegQuality = q
 
@@ -143,7 +147,7 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 				}
 				q, err := strconv.Atoi(args[0])
 				if err != nil {
-					return nil, h.Errf("invalid png_compression: %v", err)
+					return nil, h.Errf("invalid png_compression: %w", err)
 				}
 				img.PngCompression = q
 
@@ -155,7 +159,7 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 				factoryName := factory.Name()
 				filter, err := factory.New(h.RemainingArgs()...)
 				if err != nil {
-					return nil, h.Errf("%s: %v", factoryName, err)
+					return nil, h.Errf("%s: %w", factoryName, err)
 				}
 				filterName := fmt.Sprintf("%04d_%s", filterIndex, factoryName)
 				filters[filterName] = filter
@@ -192,7 +196,7 @@ func (img *ImageFilter) Provision(ctx caddy.Context) error {
 func (img *ImageFilter) Validate() error {
 	// this is just a very inefficient file_server otherwise
 	if len(img.FilterOrder) == 0 {
-		return fmt.Errorf("no image filters to apply configured")
+		return errors.New("no image filters to apply configured")
 	}
 
 	for _, filterName := range img.FilterOrder {
@@ -236,7 +240,7 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 
 	reqImg, formatName, err := image.Decode(file)
 	if err != nil {
-		// img.logger.Warn("decoding of image failed", zap.Error(err))
+		img.logger.Warn("decoding of image failed", zap.Error(err))
 		return caddyhttp.Error(http.StatusUnsupportedMediaType, err)
 	}
 
@@ -278,7 +282,7 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 
 // FilterFactory generates instances of it's corresponding image filter.
 type FilterFactory interface {
-	// Name retrurns the name if the filter, which is also the directive used in the image filter
+	// Name returns the name of the filter, which is also the directive used in the image filter
 	// block. It should be in lower case.
 	Name() string
 
@@ -291,11 +295,11 @@ type FilterFactory interface {
 
 // Filter is a image filter that can be applied to an image.
 type Filter interface {
-	// Apply applies the image filter the an image and returns the new image.
+	// Apply applies the image filter to an image and returns the new image.
 	Apply(*caddy.Replacer, image.Image) (image.Image, error)
 }
 
-// Interface guards
+// Interface guards.
 var (
 	_ json.Unmarshaler            = (*filters)(nil)
 	_ caddy.Provisioner           = (*ImageFilter)(nil)

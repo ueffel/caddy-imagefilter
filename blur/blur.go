@@ -12,30 +12,40 @@ import (
 	imagefilter "github.com/ueffel/caddy-imagefilter"
 )
 
-// BlurFactory creates BlurFilter instances.
+// BlurFactory creates Blur instances.
 type BlurFactory struct{}
 
-// Blur produces a Blured version of the image.
+// Blur produces a blurred version of the image.
 type Blur struct {
-	Sigmna string `json:"sigma,omitempty"`
+	Sigma string `json:"sigma,omitempty"`
 }
 
-// Name retrurns the name if the filter, which is also the directive used in the image filter block.
+// Name returns the name of the filter, which is also the directive used in the image filter block.
 func (ff BlurFactory) Name() string { return "blur" }
 
-// New intitialises and returns a BlurFilter instance.
+// New initialises and returns a configured Blur instance.
+
+// Syntax:
+//
+//    blur [<sigma>]
+//
+// Parameters:
+//
+// sigma must be a positive floating point number and indicates how much the image will be blurred.
+// Default is 1.
 func (ff BlurFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) > 1 {
-		return nil, errors.New("too many arguments")
+		return nil, imagefilter.ErrTooManyArgs
 	}
+
 	var sigma string
 	if len(args) == 1 {
 		sigma = args[0]
 	}
-	return Blur{Sigmna: sigma}, nil
+	return Blur{Sigma: sigma}, nil
 }
 
-// Unmarshal decodes JSON data and returns a BlurFilter instance.
+// Unmarshal decodes JSON data and returns a Blur instance.
 func (ff BlurFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
 	filter := Blur{}
 	err := json.Unmarshal(data, &filter)
@@ -45,16 +55,17 @@ func (ff BlurFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
 	return filter, nil
 }
 
+// Apply applies the image filter to an image and returns the new image.
 func (f Blur) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var sigma float64
-	sigmaRepl := repl.ReplaceAll(f.Sigmna, "")
+	sigmaRepl := repl.ReplaceAll(f.Sigma, "")
 	if sigmaRepl == "" {
 		sigma = 1
 	} else {
 		sigma, err = strconv.ParseFloat(sigmaRepl, 64)
 		if err != nil {
-			return img, fmt.Errorf("invalid sigma: %v", err)
+			return img, fmt.Errorf("invalid sigma: %w", err)
 		}
 	}
 
@@ -65,11 +76,12 @@ func (f Blur) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) 
 	return imaging.Blur(img, sigma), nil
 }
 
+// init registers the image filter.
 func init() {
 	imagefilter.Register(BlurFactory{})
 }
 
-// Interface Guards
+// Interface guards.
 var (
 	_ imagefilter.FilterFactory = (*BlurFactory)(nil)
 	_ imagefilter.Filter        = (*Blur)(nil)

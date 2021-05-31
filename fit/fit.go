@@ -2,7 +2,6 @@ package fit
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"image"
 	"strconv"
@@ -12,26 +11,43 @@ import (
 	imagefilter "github.com/ueffel/caddy-imagefilter"
 )
 
+// FitFactory creates Fit instances.
 type FitFactory struct{}
 
+// Fit scales a image to fit to the specified maximum width and height using a linear filter, the
+// image aspect ratio is preserved. If the image already fits inside the bounds, nothing will be
+// done.
 type Fit struct {
 	Width  string `json:"width,omitempty"`
 	Height string `json:"height,omitempty"`
 }
 
+// Name returns the name of the filter, which is also the directive used in the image filter block.
 func (ff FitFactory) Name() string { return "fit" }
 
+// New initialises and returns a configured Fit instance.
+//
+// Syntax:
+//
+//    fit <width> <height>
+//
+// Parameters:
+//
+// width must be a positive integer and determines the maximum width.
+//
+// height must be a positive integer and determines the maximum height.
 func (ff FitFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) < 2 {
-		return nil, errors.New("too few arguments")
+		return nil, imagefilter.ErrTooFewArgs
 	}
 	if len(args) > 2 {
-		return nil, errors.New("too many arguments")
+		return nil, imagefilter.ErrTooManyArgs
 	}
 
 	return Fit{Width: args[0], Height: args[1]}, nil
 }
 
+// Unmarshal decodes JSON data and returns a Fit instance.
 func (ff FitFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
 	filter := Fit{}
 	err := json.Unmarshal(data, &filter)
@@ -41,6 +57,7 @@ func (ff FitFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
 	return filter, nil
 }
 
+// Apply applies the image filter to an image and returns the new image.
 func (f Fit) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var width int
@@ -50,7 +67,7 @@ func (f Fit) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	} else {
 		width, err = strconv.Atoi(widthRepl)
 		if err != nil {
-			return img, fmt.Errorf("invalid width: %v", err)
+			return img, fmt.Errorf("invalid width: %w", err)
 		}
 	}
 	var height int
@@ -60,7 +77,7 @@ func (f Fit) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	} else {
 		height, err = strconv.Atoi(heightRepl)
 		if err != nil {
-			return img, fmt.Errorf("invalid height: %v", err)
+			return img, fmt.Errorf("invalid height: %w", err)
 		}
 	}
 
@@ -71,11 +88,12 @@ func (f Fit) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	return imaging.Fit(img, width, height, imaging.Linear), nil
 }
 
+// init registers the image filter.
 func init() {
 	imagefilter.Register(FitFactory{})
 }
 
-// Interface Guards
+// Interface guards.
 var (
 	_ imagefilter.FilterFactory = (*FitFactory)(nil)
 	_ imagefilter.Filter        = (*Fit)(nil)

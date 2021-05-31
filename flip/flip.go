@@ -2,7 +2,6 @@ package flip
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"image"
 
@@ -11,25 +10,38 @@ import (
 	imagefilter "github.com/ueffel/caddy-imagefilter"
 )
 
+// FlipFactory creates Flip instances.
 type FlipFactory struct{}
 
+// Flips flips (mirrors) a image vertically or horizontally.
 type Flip struct {
 	Direction string `json:"direction,omitempty"`
 }
 
+// Name returns the name of the filter, which is also the directive used in the image filter block.
 func (ff FlipFactory) Name() string { return "flip" }
 
+// New initialises and returns a configured Flip instance.
+//
+// Syntax:
+//
+//    flip <h|v>
+//
+// Parameters:
+//
+// h|v determines if the image flipped horizontally or vertically.
 func (ff FlipFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) < 1 {
-		return nil, errors.New("too few arguments")
+		return nil, imagefilter.ErrTooFewArgs
 	}
 	if len(args) > 1 {
-		return nil, errors.New("too many arguments")
+		return nil, imagefilter.ErrTooManyArgs
 	}
 
 	return Flip{Direction: args[0]}, nil
 }
 
+// Unmarshal decodes JSON data and returns a Flip instance.
 func (ff FlipFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
 	filter := Flip{}
 	err := json.Unmarshal(data, &filter)
@@ -39,6 +51,7 @@ func (ff FlipFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
 	return filter, nil
 }
 
+// Apply applies the image filter to an image and returns the new image.
 func (f Flip) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	direction := repl.ReplaceAll(f.Direction, "")
 
@@ -52,11 +65,12 @@ func (f Flip) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) 
 	}
 }
 
+// init registers the image filter.
 func init() {
 	imagefilter.Register(FlipFactory{})
 }
 
-// Interface Guards
+// Interface guards.
 var (
 	_ imagefilter.FilterFactory = (*FlipFactory)(nil)
 	_ imagefilter.Filter        = (*Flip)(nil)
