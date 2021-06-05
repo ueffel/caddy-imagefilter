@@ -31,8 +31,8 @@ func (ff RotateFactory) Name() string { return "rotate" }
 //
 // Parameters:
 //
-// angle one of the following: 0, 90, 180, 270 (0 is valid, but nothing will be done to the image).
-//
+// angle is one of the following: 0, 90, 180, 270 (0 is valid, but nothing will be done to the
+// image).
 func (ff RotateFactory) New(args ...string) (imagefilter.Filter, error) {
 	if len(args) < 1 {
 		return nil, imagefilter.ErrTooFewArgs

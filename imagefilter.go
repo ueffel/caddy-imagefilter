@@ -199,9 +199,12 @@ func (img *ImageFilter) Validate() error {
 		return errors.New("no image filters to apply configured")
 	}
 
-	for _, filterName := range img.FilterOrder {
+	for i, filterName := range img.FilterOrder {
 		if _, ok := img.Filters[filterName]; !ok {
 			return fmt.Errorf("no image filter '%s' configured", filterName)
+		}
+		if i >= 9999 {
+			return fmt.Errorf("too many filters")
 		}
 	}
 
