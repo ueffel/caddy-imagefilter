@@ -139,7 +139,7 @@ image_filter {
 ```
 
 You can go crazy and combine many filters. (But no more than 9999, which should quite sufficient or
-you doing something seriously wrong)
+you're doing something seriously wrong)
 
 ### Default filters
 
@@ -165,7 +165,7 @@ Installation: `--with github.com/ueffel/caddy-imagefilter/crop`
 
 #### fit
 
-Fit scales a image to fit to the specified maximum width and height using a linear filter, the
+Fit scales an image to fit to the specified maximum width and height using a linear filter, the
 image aspect ratio is preserved. If the image already fits inside the bounds, nothing will be
 done.
 
@@ -365,8 +365,19 @@ http://:9000 { # internal address only accessable from the server itself to tran
         }
     }
 }
-
 ```
 
 This could also extended to limit the load because of image filtering by using rate limiting with
 this module <https://github.com/mholt/caddy-ratelimit>
+
+## Write your own filter
+
+You can use the base module `imagefilter` to implement your own filter. A new filter modules needs 2
+types, that implement `imagefilter.FilterFactory` and `imagefilter.Filter` respectively. A
+`FilterFactory` registers itself as image filter and produces configured `Filter` instances. The
+configured `Filter` instance then is called at runtime with an image, where the filter operation has
+to be applied and the resulting image returned. It's recommended to have all configure parameters as
+strings, so they can contain caddy placeholders. Before applying the filter the placeholders should
+be replaced with `caddy.Replacer`'s `ReplaceAll`.
+
+Have a look at the default filters for implementation pointers.
