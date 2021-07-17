@@ -150,7 +150,7 @@ Crop produces a cropped image as rectangular region of a specific size.
 Syntax:
 
 ```caddy-d
-   crop <width> <height> [<anchor>]
+    crop <width> <height> [<anchor>]
 ```
 
 Parameters:
@@ -172,7 +172,7 @@ done.
 Syntax:
 
 ```caddy-d
-   fit <width> <height>
+    fit <width> <height>
 ```
 
 Parameters:
@@ -184,12 +184,12 @@ Installation: `--with github.com/ueffel/caddy-imagefilter/fit`
 
 #### flip
 
-Flips flips (mirrors) a image vertically or horizontally.
+Flip flips (mirrors) a image vertically or horizontally.
 
 Syntax:
 
 ```caddy-d
-   flip <h|v>
+    flip <h|v>
 ```
 
 Parameters:
@@ -206,7 +206,7 @@ the input image is returned unchanged.
 Syntax:
 
 ```caddy-d
-   resize <width> <height>
+    resize <width> <height>
 ```
 
 Parameters:
@@ -225,7 +225,7 @@ Rotate rotates a image 90, 180 or 270 degrees counter-clockwise.
 Syntax:
 
 ```caddy-d
-   rotate <angle>
+    rotate <angle>
 ```
 
 Parameters:
@@ -242,7 +242,7 @@ Sharpen produces a sharpened version of the image.
 Syntax:
 
 ```caddy-d
-   sharpen [<sigma>]
+    sharpen [<sigma>]
 ```
 
 Parameters:
@@ -252,7 +252,7 @@ Parameters:
 
 Installation: `--with github.com/ueffel/caddy-imagefilter/sharpen`
 
-#### Additional filters
+### Additional filters
 
 #### blur
 
@@ -261,7 +261,7 @@ Blur produces a blurred version of the image.
 Syntax:
 
 ```caddy-d
-   blur [<sigma>]
+    blur [<sigma>]
 ```
 
 Parameters:
@@ -278,7 +278,7 @@ Grayscale produces a grayscaled version of the image.
 Syntax:
 
 ```caddy-d
-   grayscale
+    grayscale
 ```
 
 no parameters.
@@ -292,7 +292,7 @@ Invert produces an inverted (negated) version of the image.
 Syntax:
 
 ```caddy-d
-   invert
+    invert
 ```
 
 no parameters.
@@ -307,7 +307,7 @@ are filled with the specified color.
 Syntax:
 
 ```caddy-d
-   rotate_any <angle> <color>
+    rotate_any <angle> <color>
 ```
 
 Parameters:
@@ -351,7 +351,7 @@ http://:80 {
 }
 
 http://:9000 { # internal address only accessable from the server itself to transform images
-    bind ::1   # local ipv6 address (same as 127.0.0.1 ofr ipv4)
+    bind ::1   # local ipv6 address (same as 127.0.0.1 for ipv4)
     cache
     header Cache-Control "max-age=86400" # keep 1 day in cache
     root .
@@ -376,7 +376,7 @@ You can use the base module `imagefilter` to implement your own filter. A new fi
 types, that implement `imagefilter.FilterFactory` and `imagefilter.Filter` respectively. A
 `FilterFactory` registers itself as image filter and produces configured `Filter` instances. The
 configured `Filter` instance then is called at runtime with an image, where the filter operation has
-to be applied and the resulting image returned. It's recommended to have all configure parameters as
+to be applied and the resulting image returned. It's recommended to have all configure-parameters as
 strings, so they can contain caddy placeholders. Before applying the filter the placeholders should
 be replaced with `caddy.Replacer`'s `ReplaceAll`.
 
