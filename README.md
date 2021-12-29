@@ -11,8 +11,9 @@ Supported formats are:
 * TIFF
 * WEBP (only input)
 
-There is currently no pure go WEBP library, that can encode (not just decode) WEBP images. Therefore
-images in WEBP will be encoded as PNG as fallback.
+There is currently no pure go WEBP library, that can encode (not just decode) WEBP images (maybe
+[someday](https://github.com/golang/go/issues/45121)). Therefore images in WEBP will be encoded as
+PNG as fallback.
 
 It's recommended to keep transformed images in a cache to improve response times and don't do
 transformation over and over again.
@@ -73,7 +74,7 @@ image_filter [<matcher>] {
 ```
 
 * **root** sets the path to the site root for just this file server instance, overriding any other.
-  Default: {http.vars.root} or the current working directory. Note: This subdirective only changes
+  Default: `{http.vars.root}` or the current working directory. Note: This subdirective only changes
   the root for this directive. For other directives (like try_files or templates) to know the same
   site root, use the root directive, not this subdirective.
 * **jpeg_quality** determines the quality of jpeg encoding after the filters are applied. It ranges
@@ -346,7 +347,7 @@ http://:80 {
     }
     reverse_proxy @thumbnail [::1]:9000 {
         header_up Cache-Control "max-age=86400"  # always use cache, even if requested otherwise
-        header_down -Server                      # prevents multiple "Server: Caddy" reponse header
+        header_down -Server                      # prevents multiple "Server: Caddy" response header
     }
 }
 

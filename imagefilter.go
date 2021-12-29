@@ -39,21 +39,28 @@ type ImageFilter struct {
 	// filters will be applied.
 	Filters filters `json:"filters,omitempty"`
 
-	// FilterOrder is a slice of strings in the form "<position>_<image filter name>". Each entry
-	// should have a corresponding entry in the Filters map.
-	FilterOrder []string `json:"filter_order,omitempty"`
+	logger *zap.Logger
 
 	// Root is the path to the root of the site. Default is `{http.vars.root}` if set, or current
 	// working directory otherwise.
 	Root string `json:"root,omitempty"`
 
-	JpegQuality int `json:"jpeg_quality,omitempty"`
-
-	PngCompression int `json:"png_compression,omitempty"`
+	// FilterOrder is a slice of strings in the form "<position>_<image filter name>". Each entry
+	// should have a corresponding entry in the Filters map.
+	FilterOrder []string `json:"filter_order,omitempty"`
 
 	encodingOpts []imaging.EncodeOption
 
-	logger *zap.Logger
+	// JpegQuality determines the quality of jpeg encoding after the filters are applied. It ranges
+	// from 1 to 100 inclusive, higher is better. Default is 75.
+	JpegQuality int `json:"jpeg_quality,omitempty"`
+
+	// PngCompression determines the compression of png images. Possible values are:
+	//   * 0: Default compression
+	//   * -1: no compression
+	//   * -2: fastest compression
+	//   * -3: best compression
+	PngCompression int `json:"png_compression,omitempty"`
 }
 
 type filters map[string]Filter
