@@ -75,8 +75,8 @@ image_filter [<matcher>] {
 
 * **root** sets the path to the site root for just this file server instance, overriding any other.
   Default: `{http.vars.root}` or the current working directory. Note: This subdirective only changes
-  the root for this directive. For other directives (like try_files or templates) to know the same
-  site root, use the root directive, not this subdirective.
+  the root for this directive. For other directives (like `try_files` or `templates`) to know the
+  same site root, use the root directive, not this subdirective.
 * **jpeg_quality** determines the quality of jpeg encoding after the filters are applied. It ranges
   from 1 to 100 inclusive, higher is better. Default is `75`.
 * **png_compression** determines the compression of png images. Possible values are:
@@ -89,7 +89,7 @@ image_filter [<matcher>] {
 * **<filter-args...>** support [caddy
   placeholders](https://caddyserver.com/docs/caddyfile/concepts#placeholders).
 
-At least one filter has to be configured or this would be just an inefficent `file_server`. No
+At least one filter has to be configured or this would be just an inefficient `file_server`. No
 filters configured is therefore considered invalid and will emit an error on start.
 
 ### Examples
@@ -323,6 +323,24 @@ Parameters:
   * `transparent`, `black`, `white`, `blue` or about 140 more
 
 Installation: `--with github.com/ueffel/caddy-imagefilter/rotate_any`
+
+#### smartcrop
+
+Smartcrop finds good rectangular image crops of a specific size. It uses
+<https://github.com/muesli/smartcrop>
+
+Syntax:
+
+```caddy-d
+    smartcrop <width> <height>
+```
+
+Parameters:
+
+* **width** must be a positive integer and determines the width of the cropped image.
+* **height** must be a positive integer and determines the height of the cropped image.
+
+Installation: `--with github.com/ueffel/caddy-imagefilter/smartcrop`
 
 ### Advanced Configuration
 

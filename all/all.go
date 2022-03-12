@@ -11,4 +11,5 @@ import (
 	_ "github.com/ueffel/caddy-imagefilter/rotate"
 	_ "github.com/ueffel/caddy-imagefilter/rotate_any"
 	_ "github.com/ueffel/caddy-imagefilter/sharpen"
+	_ "github.com/ueffel/caddy-imagefilter/smartcrop"
 )
