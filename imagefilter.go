@@ -20,6 +20,7 @@ import (
 	"github.com/disintegration/imaging"
 	"go.uber.org/zap"
 	_ "golang.org/x/image/webp"
+	"golang.org/x/sync/semaphore"
 )
 
 var (
@@ -41,6 +42,8 @@ type ImageFilter struct {
 
 	logger *zap.Logger
 
+	concurrencySemaphore *semaphore.Weighted
+
 	// Root is the path to the root of the site. Default is `{http.vars.root}` if set, or current
 	// working directory otherwise.
 	Root string `json:"root,omitempty"`
@@ -61,6 +64,10 @@ type ImageFilter struct {
 	//   * -2: fastest compression
 	//   * -3: best compression
 	PngCompression int `json:"png_compression,omitempty"`
+
+	// MaxConcurrent determines how many request can be served concurrently. Default is 0, which
+	// means unlimited
+	MaxConcurrent int64 `json:"max_concurrent,omitempty"`
 }
 
 type filters map[string]Filter
@@ -158,6 +165,17 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 				}
 				img.PngCompression = q
 
+			case "max_concurrent":
+				args := h.RemainingArgs()
+				if len(args) != 1 {
+					return nil, h.ArgErr()
+				}
+				mc, err := strconv.ParseInt(args[0], 10, 64)
+				if err != nil {
+					return nil, h.Errf("invalid max_concurrent: %w", err)
+				}
+				img.MaxConcurrent = mc
+
 			default:
 				factory, ok := registeredFilter[h.Val()]
 				if !ok {
@@ -196,6 +214,10 @@ func (img *ImageFilter) Provision(ctx caddy.Context) error {
 
 	img.encodingOpts = append(img.encodingOpts, imaging.PNGCompressionLevel(png.CompressionLevel(img.PngCompression)))
 
+	if img.MaxConcurrent > 0 {
+		img.concurrencySemaphore = semaphore.NewWeighted(img.MaxConcurrent)
+	}
+
 	return nil
 }
 
@@ -223,12 +245,24 @@ func (img *ImageFilter) Validate() error {
 		return errors.New("png_compression must be between -3 and 0")
 	}
 
+	if img.MaxConcurrent < 0 {
+		return errors.New("max_concurrent must be greater or equal 0")
+	}
+
 	return nil
 }
 
 // ServeHTTP looks for the file in the current root directory and applys the configured filters.
 func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp.Handler) error {
 	repl := r.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer)
+
+	if img.concurrencySemaphore != nil {
+		err := img.concurrencySemaphore.Acquire(r.Context(), 1)
+		if err != nil {
+			return caddyhttp.Error(http.StatusInternalServerError, err)
+		}
+		defer img.concurrencySemaphore.Release(1)
+	}
 
 	root := repl.ReplaceAll(img.Root, ".")
 	if root == "" {
@@ -253,8 +287,12 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 		img.logger.Warn("decoding of image failed", zap.Error(err))
 		return caddyhttp.Error(http.StatusUnsupportedMediaType, err)
 	}
+	file.Close()
 
 	for _, filterName := range img.FilterOrder {
+		if r.Context().Err() != nil {
+			return r.Context().Err()
+		}
 		filter := img.Filters[filterName]
 		newImg, err := filter.Apply(repl, reqImg)
 		if err != nil {
@@ -280,6 +318,10 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 		} else {
 			w.Header().Set("Content-Type", mtyp)
 		}
+	}
+
+	if r.Context().Err() != nil {
+		return r.Context().Err()
 	}
 
 	err = imaging.Encode(w, reqImg, format, img.encodingOpts...)

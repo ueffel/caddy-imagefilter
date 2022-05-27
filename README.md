@@ -67,6 +67,7 @@ image_filter [<matcher>] {
     root            <path>
     jpeg_quality    <quality>
     png_compression <level>
+    max_concurrent  <level>
 
     # included filters
     <filters...> <filter-args...>
@@ -84,6 +85,9 @@ image_filter [<matcher>] {
   * `-1`: no compression
   * `-2`: fastest compression
   * `-3`: best compression
+* **max_concurrent** determines how many request can be served concurrently. This is intended to
+  reduce excessive cpu/memory usage for image transformations by limiting the number of parallel
+  calculations. Any value less or equal `0` means no limit. Default is `0`.
 * **<filters...>** is a list of filters with their corresponding arguments, that are applied in
   order of definition.
 * **<filter-args...>** support [caddy
