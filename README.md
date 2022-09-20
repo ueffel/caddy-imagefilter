@@ -64,6 +64,7 @@ or any other combination.
 
 ```caddy-d
 image_filter [<matcher>] {
+    fs              <backend>
     root            <path>
     jpeg_quality    <quality>
     png_compression <level>
@@ -74,6 +75,9 @@ image_filter [<matcher>] {
 }
 ```
 
+* **fs** specifies an alternate (perhaps virtual) file system to use. Any Caddy module in the
+  `caddy.fs` namespace can be used here. Any root path/prefix will still apply to alternate file
+  system modules. By default, the local disk is used.
 * **root** sets the path to the site root for just this file server instance, overriding any other.
   Default: `{http.vars.root}` or the current working directory. Note: This subdirective only changes
   the root for this directive. For other directives (like `try_files` or `templates`) to know the
@@ -355,10 +359,7 @@ cache module is not quite ready for production use, it should just serve as an e
 ```caddy-d
 {
     order image_filter before file_server
-    order cache first
-    cache {
-        olric_config olricd.yaml
-    }
+    order cache before rewrite
 }
 
 http://:80 {
@@ -375,7 +376,9 @@ http://:80 {
 
 http://:9000 { # internal address only accessable from the server itself to transform images
     bind ::1   # local ipv6 address (same as 127.0.0.1 for ipv4)
-    cache
+    cache {
+        ttl 24h
+    }
     header Cache-Control "max-age=86400" # keep 1 day in cache
     root .
     @thumbnail {

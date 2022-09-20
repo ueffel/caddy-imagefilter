@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io/fs"
 	"mime"
 	"net/http"
 	"os"
@@ -15,6 +16,8 @@ import (
 	"sync"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/caddyserver/caddy/v2/caddyconfig/httpcaddyfile"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"github.com/disintegration/imaging"
@@ -35,6 +38,10 @@ var (
 // runtime. It should be used together with a cache module, so filters don't have to be applied
 // repeatedly because it's an expensive operation.
 type ImageFilter struct {
+	// The file system implementation to use. By default, Caddy uses the local disk file system.
+	FileSystemRaw json.RawMessage `json:"file_system,omitempty" caddy:"namespace=caddy.fs inline_key=backend"`
+	fileSystem    fs.StatFS
+
 	// Filters is a map of initialized image filters. Keys have the form
 	// "<position>_<image filter name>", where <position> specifies the order in which the image
 	// filters will be applied.
@@ -71,6 +78,12 @@ type ImageFilter struct {
 }
 
 type filters map[string]Filter
+
+// osFS is a simple fs.StatFS implementation that uses the local file system.
+type osFS struct{}
+
+func (osFS) Open(name string) (fs.File, error)     { return os.Open(name) }
+func (osFS) Stat(name string) (fs.FileInfo, error) { return os.Stat(name) }
 
 // Register registers a filter with it's FilterFactory which is used to create instances of
 // the corresponding filter.
@@ -138,6 +151,28 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 
 		for h.NextBlock(0) {
 			switch h.Val() {
+			case "fs":
+				if !h.NextArg() {
+					return nil, h.ArgErr()
+				}
+				if img.FileSystemRaw != nil {
+					return nil, h.Err("file system module already specified")
+				}
+				name := h.Val()
+				modID := "caddy.fs." + name
+				unm, err := caddyfile.UnmarshalModule(h.Dispenser, modID)
+				if err != nil {
+					return nil, err
+				}
+				statFS, ok := unm.(fs.StatFS)
+				if !ok {
+					return nil,
+						h.Errf("module %s (%T) is not a supported file system implementation (requires fs.StatFS)",
+							modID,
+							unm)
+				}
+				img.FileSystemRaw = caddyconfig.JSONModuleObject(statFS, "backend", name, nil)
+
 			case "root":
 				if !h.Args(&img.Root) {
 					return nil, h.ArgErr()
@@ -201,7 +236,19 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 
 // Provision sets up image filter module.
 func (img *ImageFilter) Provision(ctx caddy.Context) error {
-	img.logger = ctx.Logger(img)
+	img.logger = ctx.Logger()
+
+	// establish which file system (possibly a virtual one) we'll be using
+	if len(img.FileSystemRaw) > 0 {
+		mod, err := ctx.LoadModule(img, "FileSystemRaw")
+		if err != nil {
+			return fmt.Errorf("loading file system module: %v", err)
+		}
+		img.fileSystem = mod.(fs.StatFS)
+	}
+	if img.fileSystem == nil {
+		img.fileSystem = osFS{}
+	}
 
 	if img.Root == "" {
 		img.Root = "{http.vars.root}"
@@ -272,11 +319,11 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 	uri := repl.ReplaceAll(r.URL.Path, "")
 	filename := filepath.Join(root, filepath.Clean("/"+uri))
 
-	_, err := os.Stat(filename)
+	_, err := img.fileSystem.Stat(filename)
 	if err != nil {
 		return caddyhttp.Error(http.StatusNotFound, err)
 	}
-	file, err := os.Open(filename)
+	file, err := img.fileSystem.Open(filename)
 	if err != nil {
 		return caddyhttp.Error(http.StatusNotFound, err)
 	}
