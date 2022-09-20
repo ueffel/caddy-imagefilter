@@ -29,7 +29,7 @@ func (ff FitFactory) Name() string { return "fit" }
 //
 // Syntax:
 //
-//    fit <width> <height>
+//	fit <width> <height>
 //
 // Parameters:
 //

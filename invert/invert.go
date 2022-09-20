@@ -22,7 +22,7 @@ func (ff InvertFactory) Name() string { return "invert" }
 //
 // Syntax:
 //
-//    invert
+//	invert
 //
 // no parameters.
 func (ff InvertFactory) New(args ...string) (imagefilter.Filter, error) {

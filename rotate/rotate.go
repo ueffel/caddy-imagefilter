@@ -27,7 +27,7 @@ func (ff RotateFactory) Name() string { return "rotate" }
 //
 // Syntax:
 //
-//    rotate <angle>
+//	rotate <angle>
 //
 // Parameters:
 //

@@ -25,7 +25,7 @@ func (ff FlipFactory) Name() string { return "flip" }
 //
 // Syntax:
 //
-//    flip <h|v>
+//	flip <h|v>
 //
 // Parameters:
 //

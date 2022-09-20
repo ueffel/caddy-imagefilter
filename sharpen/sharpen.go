@@ -27,7 +27,7 @@ func (ff SharpenFactory) Name() string { return "sharpen" }
 //
 // Syntax:
 //
-//    sharpen [<sigma>]
+//	sharpen [<sigma>]
 //
 // Parameters:
 //

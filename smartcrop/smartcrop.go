@@ -31,7 +31,7 @@ func (ff SmartcropFactory) Name() string { return "smartcrop" }
 //
 // Syntax:
 //
-//    smartcrop <width> <height>
+//	smartcrop <width> <height>
 //
 // Parameters:
 //
@@ -51,10 +51,8 @@ func (ff SmartcropFactory) New(args ...string) (imagefilter.Filter, error) {
 
 // Apply applies the image filter to an image and returns the new image.
 func (f Smartcrop) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
-	var err error
-	var width int
 	widthRepl := repl.ReplaceAll(f.Width, "")
-	width, err = strconv.Atoi(widthRepl)
+	width, err := strconv.Atoi(widthRepl)
 	if err != nil {
 		return img, fmt.Errorf("invalid width %s %w", widthRepl, err)
 	}
@@ -62,9 +60,8 @@ func (f Smartcrop) Apply(repl *caddy.Replacer, img image.Image) (image.Image, er
 		return nil, fmt.Errorf("invalid width %d", width)
 	}
 
-	var height int
 	heightRepl := repl.ReplaceAll(f.Height, "")
-	height, err = strconv.Atoi(heightRepl)
+	height, err := strconv.Atoi(heightRepl)
 	if err != nil {
 		return img, fmt.Errorf("invalid height %s %w", heightRepl, err)
 	}

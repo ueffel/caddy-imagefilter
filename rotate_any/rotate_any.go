@@ -31,7 +31,7 @@ func (ff RotateAnyFactory) Name() string { return "rotate_any" }
 //
 // Syntax:
 //
-//    rotate_any <angle> <color>
+//	rotate_any <angle> <color>
 //
 // Parameters:
 //
@@ -40,10 +40,11 @@ func (ff RotateAnyFactory) Name() string { return "rotate_any" }
 //
 // color is the color which is used to fill uncovered areas after the rotation.
 // Supported formats are:
-//    "#FFAADD" (in quotes because otherwise it will be a comment in a caddyfile)
-//    rgb(255,170,221)
-//    rgba(255,170,221,0.5)
-//    transparent, black, white, blue or about 140 more
+//
+//	"#FFAADD" (in quotes because otherwise it will be a comment in a caddyfile)
+//	rgb(255,170,221)
+//	rgba(255,170,221,0.5)
+//	transparent, black, white, blue or about 140 more
 //
 // (see for many more supported color words https://www.w3schools.com/colors/colors_names.asp)
 func (ff RotateAnyFactory) New(args ...string) (imagefilter.Filter, error) {

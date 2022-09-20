@@ -28,7 +28,7 @@ func (ff ResizeFactory) Name() string { return "resize" }
 //
 // Syntax:
 //
-//    resize <width> <height>
+//	resize <width> <height>
 //
 // Parameters:
 //

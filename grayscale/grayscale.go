@@ -22,7 +22,7 @@ func (ff GrayscaleFactory) Name() string { return "grayscale" }
 //
 // Syntax:
 //
-//    grayscale
+//	grayscale
 //
 // no parameters.
 func (ff GrayscaleFactory) New(args ...string) (imagefilter.Filter, error) {

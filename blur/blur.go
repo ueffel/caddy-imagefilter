@@ -27,7 +27,7 @@ func (ff BlurFactory) Name() string { return "blur" }
 
 // Syntax:
 //
-//    blur [<sigma>]
+//	blur [<sigma>]
 //
 // Parameters:
 //
