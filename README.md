@@ -103,14 +103,20 @@ filters configured is therefore considered invalid and will emit an error on sta
 ### Examples
 
 ```caddy-d
-@thumbnail {
-    path_regexp thumb /.+\.(jpg|jpeg|png|gif|bmp|tif|tiff|webp)$
-    query w=*
-    query h=*
+{
+    order image_filter before file_server
 }
 
-image_filter @thumbnail {
-    fit {query.w} {query.h}
+:80 {
+    @thumbnail {
+        path_regexp thumb /.+\.(jpg|jpeg|png|gif|bmp|tif|tiff|webp)$
+        query w=*
+        query h=*
+    }
+
+    image_filter @thumbnail {
+        fit {query.w} {query.h}
+    }
 }
 ```
 
@@ -118,13 +124,19 @@ Produces are scaled version of an image, that fits within a rectangle with width
 `w` and `h` are query parameters. For example: <http://localhost/image.png?w=400&h=225>
 
 ```caddy-d
-@thumbnail {
-    path_regexp thumb /w(400|800)(/.+\.(jpg|jpeg|png|gif|bmp|tif|tiff|webp))$
+{
+    order image_filter before file_server
 }
-handle @thumbnail {
-    rewrite {re.thumb.2}
-    image_filter {
-        resize {re.thumb.1} 0
+
+:80 {
+    @thumbnail {
+        path_regexp thumb /w(400|800)(/.+\.(jpg|jpeg|png|gif|bmp|tif|tiff|webp))$
+    }
+    handle @thumbnail {
+        rewrite {re.thumb.2}
+        image_filter {
+            resize {re.thumb.1} 0
+        }
     }
 }
 ```
