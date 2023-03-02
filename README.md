@@ -18,12 +18,21 @@ PNG as fallback.
 It's recommended to keep transformed images in a cache to improve response times and don't do
 transformation over and over again.
 
+## Changes in `v2`
+
+The version of the module got some internal refactoring so the implemented image filters are
+actually caddy modules. It makes the whole archicture more in line with how the extensibility should
+work in caddy.
+
+If you are using the module the only thing that changes is the installation. The configuration via
+caddyfile is working exactly the same.
+
 ## Installation
 
 ### With Default filters
 
 ```sh
-xcaddy build --with github.com/ueffel/caddy-imagefilter/defaults
+xcaddy build --with github.com/ueffel/caddy-imagefilter/v2/defaults
 ```
 
 See [Default filters](#default-filters).
@@ -31,7 +40,7 @@ See [Default filters](#default-filters).
 ### With All filters
 
 ```sh
-xcaddy build --with github.com/ueffel/caddy-imagefilter/all
+xcaddy build --with github.com/ueffel/caddy-imagefilter/v2/all
 ```
 
 This includes [Default filters](#default-filters) as well as [Additional filters](#additional-filters)
@@ -39,13 +48,13 @@ This includes [Default filters](#default-filters) as well as [Additional filters
 ### With Individual filters
 
 ```sh
-xcaddy build --with github.com/ueffel/caddy-imagefilter/fit
+xcaddy build --with github.com/ueffel/caddy-imagefilter/v2/fit
 ```
 
 or
 
 ```sh
-xcaddy build --with github.com/ueffel/caddy-imagefilter/fit --with github.com/ueffel/caddy-imagefilter/resize
+xcaddy build --with github.com/ueffel/caddy-imagefilter/v2/fit --with github.com/ueffel/caddy-imagefilter/v2/resize
 ```
 
 or any other combination.
@@ -182,7 +191,7 @@ Parameters:
   are: center, topleft, top, topright, left, right, bottomleft, bottom, bottomright. Default is
   center.
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/crop`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/crop`
 
 #### fit
 
@@ -201,7 +210,7 @@ Parameters:
 * **width** must be a positive integer and determines the maximum width.
 * **height** must be a positive integer and determines the maximum height.
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/fit`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/fit`
 
 #### flip
 
@@ -217,7 +226,7 @@ Parameters:
 
 * **h|v** determines if the image flipped horizontally or vertically.
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/flip`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/flip`
 
 #### resize
 
@@ -237,7 +246,7 @@ Parameters:
 
 Either width or height can be 0, then the image aspect ratio is preserved.
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/resize`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/resize`
 
 #### rotate
 
@@ -254,7 +263,7 @@ Parameters:
 * **angle** is one of the following: 0, 90, 180, 270 (0 is valid, but nothing will be done to the
   image).
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/rotate`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/rotate`
 
 #### sharpen
 
@@ -271,7 +280,7 @@ Parameters:
 * **sigma** must be a positive floating point number and indicates how much the image will be
   sharpened. Default is 1.
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/sharpen`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/sharpen`
 
 ### Additional filters
 
@@ -290,7 +299,7 @@ Parameters:
 * **sigma** must be a positive floating point number and indicates how much the image will be
   blurred. Default is 1.
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/blur`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/blur`
 
 #### grayscale
 
@@ -304,7 +313,7 @@ Syntax:
 
 no parameters.
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/grayscale`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/grayscale`
 
 #### invert
 
@@ -318,7 +327,7 @@ Syntax:
 
 no parameters.
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/invert`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/invert`
 
 #### rotate_any
 
@@ -342,7 +351,7 @@ Parameters:
   * `rgba(255,170,221,0.5)`
   * `transparent`, `black`, `white`, `blue` or about 140 more
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/rotate_any`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/rotate_any`
 
 #### smartcrop
 
@@ -360,7 +369,7 @@ Parameters:
 * **width** must be a positive integer and determines the width of the cropped image.
 * **height** must be a positive integer and determines the height of the cropped image.
 
-Installation: `--with github.com/ueffel/caddy-imagefilter/smartcrop`
+Installation: `--with github.com/ueffel/caddy-imagefilter/v2/smartcrop`
 
 ### Advanced Configuration
 
@@ -410,12 +419,12 @@ this module <https://github.com/mholt/caddy-ratelimit>
 
 ## Write your own filter
 
-You can use the base module `imagefilter` to implement your own filter. A new filter modules needs 2
-types, that implement `imagefilter.FilterFactory` and `imagefilter.Filter` respectively. A
-`FilterFactory` registers itself as image filter and produces configured `Filter` instances. The
-configured `Filter` instance then is called at runtime with an image, where the filter operation has
-to be applied and the resulting image returned. It's recommended to have all configure-parameters as
-strings, so they can contain caddy placeholders. Before applying the filter the placeholders should
-be replaced with `caddy.Replacer`'s `ReplaceAll`.
+You can use the base module `imagefilter` to implement your own filter. A new
+filter modules should be a caddy module and implement the interface
+`imagefilter.Filter`. The configured `Filter` instance then is called at runtime
+with an image, where the filter operation has to be applied and the resulting
+image returned. It's recommended to have all configure-parameters as strings, so
+they can contain caddy placeholders. Before applying the filter the placeholders
+should be replaced with `caddy.Replacer`'s `ReplaceAll`.
 
 Have a look at the default filters for implementation pointers.

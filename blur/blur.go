@@ -1,30 +1,24 @@
 package blur
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"strconv"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// BlurFactory creates Blur instances.
-type BlurFactory struct{}
 
 // Blur produces a blurred version of the image.
 type Blur struct {
 	Sigma string `json:"sigma,omitempty"`
 }
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff BlurFactory) Name() string { return "blur" }
-
-// New initialises and returns a configured Blur instance.
-
+// UnmarshalCaddyfile configures the Blur instance.
+//
 // Syntax:
 //
 //	blur [<sigma>]
@@ -33,30 +27,18 @@ func (ff BlurFactory) Name() string { return "blur" }
 //
 // sigma must be a positive floating point number and indicates how much the image will be blurred.
 // Default is 1.
-func (ff BlurFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) > 1 {
-		return nil, imagefilter.ErrTooManyArgs
+func (f *Blur) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() > 1 {
+		return imagefilter.ErrTooManyArgs
 	}
-
-	var sigma string
-	if len(args) == 1 {
-		sigma = args[0]
+	if d.NextArg() {
+		f.Sigma = d.Val()
 	}
-	return Blur{Sigma: sigma}, nil
-}
-
-// Unmarshal decodes JSON data and returns a Blur instance.
-func (ff BlurFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Blur{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
-	}
-	return filter, nil
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Blur) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Blur) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var sigma float64
 	sigmaRepl := repl.ReplaceAll(f.Sigma, "")
@@ -76,13 +58,21 @@ func (f Blur) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) 
 	return imaging.Blur(img, sigma), nil
 }
 
+// CaddyModule returns the Caddy module information.
+func (Blur) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.blur",
+		New: func() caddy.Module { return new(Blur) },
+	}
+}
+
 // init registers the image filter.
 func init() {
-	imagefilter.Register(BlurFactory{})
+	caddy.RegisterModule(Blur{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*BlurFactory)(nil)
-	_ imagefilter.Filter        = (*Blur)(nil)
+	_ imagefilter.Filter    = (*Blur)(nil)
+	_ caddyfile.Unmarshaler = (*Blur)(nil)
 )

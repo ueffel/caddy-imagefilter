@@ -1,18 +1,15 @@
 package fit
 
 import (
-	"encoding/json"
 	"fmt"
 	"image"
 	"strconv"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// FitFactory creates Fit instances.
-type FitFactory struct{}
 
 // Fit scales a image to fit to the specified maximum width and height using a linear filter, the
 // image aspect ratio is preserved. If the image already fits inside the bounds, nothing will be
@@ -22,10 +19,7 @@ type Fit struct {
 	Height string `json:"height,omitempty"`
 }
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff FitFactory) Name() string { return "fit" }
-
-// New initialises and returns a configured Fit instance.
+// UnmarshalCaddyfile configures the Fit instance.
 //
 // Syntax:
 //
@@ -36,29 +30,23 @@ func (ff FitFactory) Name() string { return "fit" }
 // width must be a positive integer and determines the maximum width.
 //
 // height must be a positive integer and determines the maximum height.
-func (ff FitFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) < 2 {
-		return nil, imagefilter.ErrTooFewArgs
+func (f *Fit) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() < 2 {
+		return imagefilter.ErrTooFewArgs
 	}
-	if len(args) > 2 {
-		return nil, imagefilter.ErrTooManyArgs
+	if d.CountRemainingArgs() > 2 {
+		return imagefilter.ErrTooManyArgs
 	}
 
-	return Fit{Width: args[0], Height: args[1]}, nil
-}
+	args := d.RemainingArgs()
+	f.Width = args[0]
+	f.Height = args[1]
 
-// Unmarshal decodes JSON data and returns a Fit instance.
-func (ff FitFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Fit{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
-	}
-	return filter, nil
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Fit) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Fit) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var width int
 	widthRepl := repl.ReplaceAll(f.Width, "")
@@ -88,13 +76,21 @@ func (f Fit) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	return imaging.Fit(img, width, height, imaging.Linear), nil
 }
 
+// CaddyModule returns the Caddy module information.
+func (Fit) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.fit",
+		New: func() caddy.Module { return new(Fit) },
+	}
+}
+
 // init registers the image filter.
 func init() {
-	imagefilter.Register(FitFactory{})
+	caddy.RegisterModule(Fit{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*FitFactory)(nil)
-	_ imagefilter.Filter        = (*Fit)(nil)
+	_ imagefilter.Filter    = (*Fit)(nil)
+	_ caddyfile.Unmarshaler = (*Fit)(nil)
 )

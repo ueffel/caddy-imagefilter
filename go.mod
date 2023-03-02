@@ -1,4 +1,4 @@
-module github.com/ueffel/caddy-imagefilter
+module github.com/ueffel/caddy-imagefilter/v2
 
 go 1.18
 

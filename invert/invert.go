@@ -1,60 +1,52 @@
 package invert
 
 import (
-	"encoding/json"
 	"image"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// InvertFactory creates Invert instances.
-type InvertFactory struct{}
 
 // Invert produces an inverted (negated) version of the image.
 type Invert struct{}
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff InvertFactory) Name() string { return "invert" }
-
-// New initialises and returns a configured Grayscale instance.
+// UnmarshalCaddyfile configures the Grayscale instance.
 //
 // Syntax:
 //
 //	invert
 //
 // no parameters.
-func (ff InvertFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) > 0 {
-		return nil, imagefilter.ErrTooManyArgs
+func (*Invert) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() > 0 {
+		return imagefilter.ErrTooManyArgs
 	}
 
-	return Invert{}, nil
-}
-
-// Unmarshal decodes JSON data and returns a Invert instance.
-func (ff InvertFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Invert{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
-	}
-	return filter, nil
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Invert) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Invert) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	return imaging.Invert(img), nil
+}
+
+// CaddyModule returns the Caddy module information.
+func (Invert) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.invert",
+		New: func() caddy.Module { return new(Invert) },
+	}
 }
 
 // init registers the image filter.
 func init() {
-	imagefilter.Register(InvertFactory{})
+	caddy.RegisterModule(Invert{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*InvertFactory)(nil)
-	_ imagefilter.Filter        = (*Invert)(nil)
+	_ imagefilter.Filter    = (*Invert)(nil)
+	_ caddyfile.Unmarshaler = (*Invert)(nil)
 )

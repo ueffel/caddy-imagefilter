@@ -1,18 +1,15 @@
 package crop
 
 import (
-	"encoding/json"
 	"fmt"
 	"image"
 	"strconv"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// CropFactory creates Crop instances.
-type CropFactory struct{}
 
 // Crop produces a cropped image as rectangular region of a specific size.
 type Crop struct {
@@ -21,10 +18,7 @@ type Crop struct {
 	Anchor string `json:"anchor,omitempty"`
 }
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff CropFactory) Name() string { return "crop" }
-
-// New initialises and returns a configured Crop instance.
+// UnmarshalCaddyfile configures Crop instance.
 //
 // Syntax:
 //
@@ -39,40 +33,29 @@ func (ff CropFactory) Name() string { return "crop" }
 // anchor determines the anchor point of the rectangular region that is cut out. Possible values
 // are: center, topleft, top, topright, left, right, bottomleft, bottom, bottomright.
 // Default is center.
-func (ff CropFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) < 2 {
-		return nil, imagefilter.ErrTooFewArgs
+func (f *Crop) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() < 2 {
+		return imagefilter.ErrTooFewArgs
 	}
-	if len(args) > 3 {
-		return nil, imagefilter.ErrTooManyArgs
+	if d.CountRemainingArgs() > 3 {
+		return imagefilter.ErrTooManyArgs
 	}
 
-	var anchor string
+	args := d.RemainingArgs()
+	f.Width = args[0]
+	f.Height = args[1]
+
 	if len(args) < 3 {
-		anchor = "center"
+		f.Anchor = "center"
 	} else {
-		anchor = args[2]
+		f.Anchor = args[2]
 	}
 
-	return Crop{
-		Width:  args[0],
-		Height: args[1],
-		Anchor: anchor,
-	}, nil
-}
-
-// Unmarshal decodes JSON data and returns a Crop instance.
-func (ff CropFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Crop{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
-	}
-	return filter, nil
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Crop) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Crop) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	widthRepl := repl.ReplaceAll(f.Width, "")
 	width, err := strconv.Atoi(widthRepl)
 	if err != nil {
@@ -119,13 +102,21 @@ func (f Crop) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) 
 	return imaging.CropAnchor(img, width, height, anchor), nil
 }
 
+// CaddyModule returns the Caddy module information.
+func (Crop) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.crop",
+		New: func() caddy.Module { return new(Crop) },
+	}
+}
+
 // init registers the image filter.
 func init() {
-	imagefilter.Register(CropFactory{})
+	caddy.RegisterModule(Crop{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*CropFactory)(nil)
-	_ imagefilter.Filter        = (*Crop)(nil)
+	_ imagefilter.Filter    = (*Crop)(nil)
+	_ caddyfile.Unmarshaler = (*Crop)(nil)
 )

@@ -1,60 +1,52 @@
 package grayscale
 
 import (
-	"encoding/json"
 	"image"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// GrayscaleFactory creates Grayscale instances.
-type GrayscaleFactory struct{}
 
 // Grayscale produces a grayscaled version of the image.
 type Grayscale struct{}
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff GrayscaleFactory) Name() string { return "grayscale" }
-
-// New initialises and returns a configured Grayscale instance.
+// UnmarshalCaddyfile configures the Grayscale instance.
 //
 // Syntax:
 //
 //	grayscale
 //
 // no parameters.
-func (ff GrayscaleFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) > 0 {
-		return nil, imagefilter.ErrTooManyArgs
+func (*Grayscale) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() > 0 {
+		return imagefilter.ErrTooManyArgs
 	}
 
-	return Grayscale{}, nil
-}
-
-// Unmarshal decodes JSON data and returns a Grayscale instance.
-func (ff GrayscaleFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Grayscale{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
-	}
-	return filter, nil
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Grayscale) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Grayscale) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	return imaging.Grayscale(img), nil
+}
+
+// CaddyModule returns the Caddy module information.
+func (Grayscale) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.grayscale",
+		New: func() caddy.Module { return new(Grayscale) },
+	}
 }
 
 // init registers the image filter.
 func init() {
-	imagefilter.Register(GrayscaleFactory{})
+	caddy.RegisterModule(Grayscale{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*GrayscaleFactory)(nil)
-	_ imagefilter.Filter        = (*Grayscale)(nil)
+	_ imagefilter.Filter    = (*Grayscale)(nil)
+	_ caddyfile.Unmarshaler = (*Grayscale)(nil)
 )

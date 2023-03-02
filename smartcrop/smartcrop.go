@@ -1,21 +1,18 @@
 package smartcrop
 
 import (
-	"encoding/json"
 	"fmt"
 	"image"
 	"strconv"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
 	"github.com/muesli/smartcrop"
 	"github.com/muesli/smartcrop/nfnt"
 	"github.com/nfnt/resize"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// SmartcropFactory creates Crop instances.
-type SmartcropFactory struct{}
 
 // Smartcrop finds good rectangular image crops of a specific size.
 // It uses https://github.com/muesli/smartcrop
@@ -24,10 +21,7 @@ type Smartcrop struct {
 	Height string `json:"height,omitempty"`
 }
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff SmartcropFactory) Name() string { return "smartcrop" }
-
-// New initialises and returns a configured Smartcrop instance.
+// UnmarshalCaddyfile configures the Smartcrop instance.
 //
 // Syntax:
 //
@@ -38,19 +32,23 @@ func (ff SmartcropFactory) Name() string { return "smartcrop" }
 // width must be a positive integer and determines the width of the cropped image.
 //
 // height must be a positive integer and determines the height of the cropped image.
-func (ff SmartcropFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) < 2 {
-		return nil, imagefilter.ErrTooFewArgs
+func (f *Smartcrop) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() < 2 {
+		return imagefilter.ErrTooFewArgs
 	}
-	if len(args) > 3 {
-		return nil, imagefilter.ErrTooManyArgs
+	if d.CountRemainingArgs() > 2 {
+		return imagefilter.ErrTooManyArgs
 	}
 
-	return Smartcrop{Width: args[0], Height: args[1]}, nil
+	args := d.RemainingArgs()
+	f.Width = args[0]
+	f.Height = args[1]
+
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Smartcrop) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Smartcrop) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	widthRepl := repl.ReplaceAll(f.Width, "")
 	width, err := strconv.Atoi(widthRepl)
 	if err != nil {
@@ -79,23 +77,21 @@ func (f Smartcrop) Apply(repl *caddy.Replacer, img image.Image) (image.Image, er
 	return imaging.Resize(cropped, width, height, imaging.Linear), nil
 }
 
-// Unmarshal decodes JSON data and returns a Smartcrop instance.
-func (ff SmartcropFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Smartcrop{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
+// CaddyModule returns the Caddy module information.
+func (Smartcrop) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.smartcrop",
+		New: func() caddy.Module { return new(Smartcrop) },
 	}
-	return filter, nil
 }
 
 // init registers the image filter.
 func init() {
-	imagefilter.Register(SmartcropFactory{})
+	caddy.RegisterModule(Smartcrop{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*SmartcropFactory)(nil)
-	_ imagefilter.Filter        = (*Smartcrop)(nil)
+	_ imagefilter.Filter    = (*Smartcrop)(nil)
+	_ caddyfile.Unmarshaler = (*Smartcrop)(nil)
 )

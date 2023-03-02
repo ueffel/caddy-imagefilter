@@ -1,27 +1,21 @@
 package flip
 
 import (
-	"encoding/json"
 	"fmt"
 	"image"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// FlipFactory creates Flip instances.
-type FlipFactory struct{}
 
 // Flips flips (mirrors) a image vertically or horizontally.
 type Flip struct {
 	Direction string `json:"direction,omitempty"`
 }
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff FlipFactory) Name() string { return "flip" }
-
-// New initialises and returns a configured Flip instance.
+// UnmarshalCaddyfile configures the Flip instance.
 //
 // Syntax:
 //
@@ -30,29 +24,21 @@ func (ff FlipFactory) Name() string { return "flip" }
 // Parameters:
 //
 // h|v determines if the image flipped horizontally or vertically.
-func (ff FlipFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) < 1 {
-		return nil, imagefilter.ErrTooFewArgs
+func (f *Flip) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() > 1 {
+		return imagefilter.ErrTooManyArgs
 	}
-	if len(args) > 1 {
-		return nil, imagefilter.ErrTooManyArgs
+	if !d.NextArg() {
+		return imagefilter.ErrTooFewArgs
 	}
 
-	return Flip{Direction: args[0]}, nil
-}
+	f.Direction = d.Val()
 
-// Unmarshal decodes JSON data and returns a Flip instance.
-func (ff FlipFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Flip{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
-	}
-	return filter, nil
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Flip) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Flip) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	direction := repl.ReplaceAll(f.Direction, "")
 
 	switch direction {
@@ -65,13 +51,21 @@ func (f Flip) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) 
 	}
 }
 
+// CaddyModule returns the Caddy module information.
+func (Flip) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.flip",
+		New: func() caddy.Module { return new(Flip) },
+	}
+}
+
 // init registers the image filter.
 func init() {
-	imagefilter.Register(FlipFactory{})
+	caddy.RegisterModule(Flip{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*FlipFactory)(nil)
-	_ imagefilter.Filter        = (*Flip)(nil)
+	_ imagefilter.Filter    = (*Flip)(nil)
+	_ caddyfile.Unmarshaler = (*Flip)(nil)
 )

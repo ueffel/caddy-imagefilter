@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig"
@@ -27,9 +26,6 @@ import (
 )
 
 var (
-	registeredFilterMu sync.RWMutex
-	registeredFilter   = make(map[string]FilterFactory)
-
 	ErrTooFewArgs  = errors.New("too few arguments")
 	ErrTooManyArgs = errors.New("too many arguments")
 )
@@ -45,7 +41,9 @@ type ImageFilter struct {
 	// Filters is a map of initialized image filters. Keys have the form
 	// "<position>_<image filter name>", where <position> specifies the order in which the image
 	// filters will be applied.
-	Filters filters `json:"filters,omitempty"`
+	FiltersRaw caddy.ModuleMap `json:"filters,omitempty"`
+
+	filters []Filter
 
 	logger *zap.Logger
 
@@ -77,57 +75,16 @@ type ImageFilter struct {
 	MaxConcurrent int64 `json:"max_concurrent,omitempty"`
 }
 
-type filters map[string]Filter
-
 // osFS is a simple fs.StatFS implementation that uses the local file system.
 type osFS struct{}
 
 func (osFS) Open(name string) (fs.File, error)     { return os.Open(name) }
 func (osFS) Stat(name string) (fs.FileInfo, error) { return os.Stat(name) }
 
-// Register registers a filter with it's FilterFactory which is used to create instances of
-// the corresponding filter.
-func Register(factory FilterFactory) {
-	registeredFilterMu.Lock()
-	defer registeredFilterMu.Unlock()
-	if registeredFilter == nil {
-		panic("registeredFilter are nil!")
-	}
-	name := factory.Name()
-	if _, dup := registeredFilter[name]; dup {
-		panic(fmt.Sprintf("filter already registered '%s'", name))
-	}
-	registeredFilter[name] = factory
-}
-
 // init registers the caddy module and the image_filter directive.
 func init() {
 	httpcaddyfile.RegisterHandlerDirective("image_filter", parseCaddyfile)
 	caddy.RegisterModule(ImageFilter{})
-}
-
-// UnmarshalJSON unmarshals the Filter slice.
-func (fs *filters) UnmarshalJSON(data []byte) error {
-	var rawFilters map[string]json.RawMessage
-	err := json.Unmarshal(data, &rawFilters)
-	if err != nil {
-		return err
-	}
-	result := filters{}
-	for k, v := range rawFilters {
-		filterType := k[5:]
-		factory, ok := registeredFilter[filterType]
-		if !ok {
-			return fmt.Errorf("unrecognized filter '%s'", filterType)
-		}
-		filter, err := factory.Unmarshal(v)
-		if err != nil {
-			return err
-		}
-		result[k] = filter
-	}
-	*fs = result
-	return nil
 }
 
 // CaddyModule returns the Caddy module information.
@@ -141,7 +98,7 @@ func (ImageFilter) CaddyModule() caddy.ModuleInfo {
 // parseCaddyfile parses the caddyfile configuration and initialises the handler.
 func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error) {
 	img := new(ImageFilter)
-	filters := make(map[string]Filter)
+	filters := make(caddy.ModuleMap)
 	var filterOrder []string
 	filterIndex := 0
 	for h.Next() {
@@ -212,24 +169,44 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 				img.MaxConcurrent = mc
 
 			default:
-				factory, ok := registeredFilter[h.Val()]
-				if !ok {
-					return nil, h.Errf("unrecognized subdirective or filter '%s'", h.Val())
-				}
-				factoryName := factory.Name()
-				filter, err := factory.New(h.RemainingArgs()...)
+				name := h.Val()
+				modID := "http.handlers.image_filter.filter." + name
+				mod, err := caddy.GetModule(modID)
 				if err != nil {
-					return nil, h.Errf("%s: %w", factoryName, err)
+					return nil, h.Errf("unrecognized subdirective or filter '%s': %v", name, err)
 				}
-				filterName := fmt.Sprintf("%04d_%s", filterIndex, factoryName)
-				filters[filterName] = filter
+
+				inst := mod.New()
+				unm, ok := inst.(caddyfile.Unmarshaler)
+				if !ok {
+					return nil, h.Errf("module '%s' is not a Caddyfile unmarshaler; is %T", mod.ID, inst)
+				}
+
+				// copy segment
+				d := h.NewFromNextSegment()
+				// skip directive itself
+				d.Next()
+
+				err = unm.UnmarshalCaddyfile(d)
+				if err != nil {
+					return nil, h.Errf("configuring filter '%s': %v", name, err)
+				}
+
+				filter, ok := inst.(Filter)
+				if !ok {
+					return nil, h.Errf("module '%s' does not implement image filter", mod.ID)
+				}
+				filterName := fmt.Sprintf("%04d_%s", filterIndex, name)
+				filters[filterName] = caddyconfig.JSON(filter, nil)
 				filterOrder = append(filterOrder, filterName)
 				filterIndex++
 			}
 		}
 	}
-	img.Filters = filters
-	img.FilterOrder = filterOrder
+
+	img.FiltersRaw = filters
+	img.FilterOrder = make([]string, len(filterOrder))
+	copy(img.FilterOrder, filterOrder)
 
 	return img, nil
 }
@@ -248,6 +225,23 @@ func (img *ImageFilter) Provision(ctx caddy.Context) error {
 	}
 	if img.fileSystem == nil {
 		img.fileSystem = osFS{}
+	}
+
+	for _, filterName := range img.FilterOrder {
+		modConf, ok := img.FiltersRaw[filterName]
+		if !ok {
+			return fmt.Errorf("no image filter '%s' configured", filterName)
+		}
+		modID := "http.handlers.image_filter.filter." + filterName[5:]
+		mod, err := ctx.LoadModuleByID(modID, modConf)
+		if err != nil {
+			return fmt.Errorf("loading module '%s': %v", modID, err)
+		}
+		filter, ok := mod.(Filter)
+		if !ok {
+			return fmt.Errorf("module '%s' does not implement Filter", modID)
+		}
+		img.filters = append(img.filters, filter)
 	}
 
 	if img.Root == "" {
@@ -276,7 +270,7 @@ func (img *ImageFilter) Validate() error {
 	}
 
 	for i, filterName := range img.FilterOrder {
-		if _, ok := img.Filters[filterName]; !ok {
+		if _, ok := img.FiltersRaw[filterName]; !ok {
 			return fmt.Errorf("no image filter '%s' configured", filterName)
 		}
 		if i >= 9999 {
@@ -336,14 +330,13 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 	}
 	file.Close()
 
-	for _, filterName := range img.FilterOrder {
+	for _, filter := range img.filters {
 		if r.Context().Err() != nil {
 			return r.Context().Err()
 		}
-		filter := img.Filters[filterName]
 		newImg, err := filter.Apply(repl, reqImg)
 		if err != nil {
-			img.logger.Warn("error applying image filter: ", zap.String("name", filterName), zap.Error(err))
+			img.logger.Warn("error applying image filter: ", zap.Error(err))
 			continue
 		}
 		reqImg = newImg
@@ -379,28 +372,16 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 	return nil
 }
 
-// FilterFactory generates instances of it's corresponding image filter.
-type FilterFactory interface {
-	// Name returns the name of the filter, which is also the directive used in the image filter
-	// block. It should be in lower case.
-	Name() string
-
-	// New initialises and returns the image filter instance.
-	New(...string) (Filter, error)
-
-	// Unmarshal decodes JSON configuration and returns the corresponding image filter instance.
-	Unmarshal([]byte) (Filter, error)
-}
-
 // Filter is a image filter that can be applied to an image.
 type Filter interface {
+	caddyfile.Unmarshaler
+
 	// Apply applies the image filter to an image and returns the new image.
 	Apply(*caddy.Replacer, image.Image) (image.Image, error)
 }
 
 // Interface guards.
 var (
-	_ json.Unmarshaler            = (*filters)(nil)
 	_ caddy.Provisioner           = (*ImageFilter)(nil)
 	_ caddy.Validator             = (*ImageFilter)(nil)
 	_ caddyhttp.MiddlewareHandler = (*ImageFilter)(nil)

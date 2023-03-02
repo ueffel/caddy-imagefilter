@@ -1,7 +1,6 @@
 package rotate
 
 import (
-	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -9,13 +8,11 @@ import (
 	"strings"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 	"gopkg.in/go-playground/colors.v1"
 )
-
-// RotateAnyFactory creates RotateAny instances.
-type RotateAnyFactory struct{}
 
 // RotateAny rotates an image by a specific angle counter-clockwise. Uncovered areas after the
 // rotation are filled with the specified color.
@@ -24,10 +21,7 @@ type RotateAny struct {
 	Color string `json:"color,omitempty"`
 }
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff RotateAnyFactory) Name() string { return "rotate_any" }
-
-// New initialises and returns a configured Fit instance.
+// UnmarshalCaddyfile configures the RotateAny instance.
 //
 // Syntax:
 //
@@ -47,28 +41,23 @@ func (ff RotateAnyFactory) Name() string { return "rotate_any" }
 //	transparent, black, white, blue or about 140 more
 //
 // (see for many more supported color words https://www.w3schools.com/colors/colors_names.asp)
-func (ff RotateAnyFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) < 2 {
-		return nil, imagefilter.ErrTooFewArgs
+func (f *RotateAny) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() < 2 {
+		return imagefilter.ErrTooFewArgs
 	}
-	if len(args) > 2 {
-		return nil, imagefilter.ErrTooManyArgs
+	if d.CountRemainingArgs() > 2 {
+		return imagefilter.ErrTooManyArgs
 	}
-	return RotateAny{Angle: args[0], Color: args[1]}, nil
-}
 
-// Unmarshal decodes JSON data and returns a RotateAny instance.
-func (ff RotateAnyFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := RotateAny{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
-	}
-	return filter, nil
+	args := d.RemainingArgs()
+	f.Angle = args[0]
+	f.Color = args[1]
+
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f RotateAny) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *RotateAny) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	angleRepl := repl.ReplaceAll(f.Angle, "")
 	angle, err := strconv.ParseFloat(angleRepl, 64)
 	if err != nil {
@@ -395,13 +384,21 @@ func getColorFromName(colorName string) color.Color {
 	}
 }
 
+// CaddyModule returns the Caddy module information.
+func (RotateAny) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.rotate_any",
+		New: func() caddy.Module { return new(RotateAny) },
+	}
+}
+
 // init registers the image filter.
 func init() {
-	imagefilter.Register(RotateAnyFactory{})
+	caddy.RegisterModule(RotateAny{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*RotateAnyFactory)(nil)
-	_ imagefilter.Filter        = (*RotateAny)(nil)
+	_ imagefilter.Filter    = (*RotateAny)(nil)
+	_ caddyfile.Unmarshaler = (*RotateAny)(nil)
 )

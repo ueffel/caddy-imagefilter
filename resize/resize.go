@@ -1,18 +1,15 @@
 package resize
 
 import (
-	"encoding/json"
 	"fmt"
 	"image"
 	"strconv"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// ResizeFactory creates Resize instances.
-type ResizeFactory struct{}
 
 // Resize can downsize images. If upsizing of an image is detected, nothing will be done and
 // the input image is returned unchanged.
@@ -21,10 +18,7 @@ type Resize struct {
 	Height string `json:"height,omitempty"`
 }
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff ResizeFactory) Name() string { return "resize" }
-
-// New initialises and returns a ResizeFilter instance.
+// UnmarshalCaddyfile configures the Resize instance.
 //
 // Syntax:
 //
@@ -37,28 +31,23 @@ func (ff ResizeFactory) Name() string { return "resize" }
 // height must be a positive integer and determines the maximum height.
 //
 // Either width or height can be 0, then the image aspect ratio is preserved.
-func (ff ResizeFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) < 2 {
-		return nil, imagefilter.ErrTooFewArgs
+func (f *Resize) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() < 2 {
+		return imagefilter.ErrTooFewArgs
 	}
-	if len(args) > 2 {
-		return nil, imagefilter.ErrTooManyArgs
+	if d.CountRemainingArgs() > 2 {
+		return imagefilter.ErrTooManyArgs
 	}
-	return Resize{Width: args[0], Height: args[1]}, nil
-}
 
-// Unmarshal decodes JSON data and returns a Resize instance.
-func (ff ResizeFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Resize{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
-	}
-	return filter, nil
+	args := d.RemainingArgs()
+	f.Width = args[0]
+	f.Height = args[1]
+
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Resize) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Resize) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var width int
 	widthRepl := repl.ReplaceAll(f.Width, "")
@@ -95,13 +84,21 @@ func (f Resize) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error
 	return imaging.Resize(img, width, height, imaging.Linear), nil
 }
 
+// CaddyModule returns the Caddy module information.
+func (Resize) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.resize",
+		New: func() caddy.Module { return new(Resize) },
+	}
+}
+
 // init registers the image filter.
 func init() {
-	imagefilter.Register(ResizeFactory{})
+	caddy.RegisterModule(Resize{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*ResizeFactory)(nil)
-	_ imagefilter.Filter        = (*Resize)(nil)
+	_ imagefilter.Filter    = (*Resize)(nil)
+	_ caddyfile.Unmarshaler = (*Resize)(nil)
 )

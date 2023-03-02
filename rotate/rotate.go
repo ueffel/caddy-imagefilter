@@ -1,29 +1,23 @@
 package rotate
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"strconv"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// RotateFactory creates Rotate instances.
-type RotateFactory struct{}
 
 // Rotate rotates a image 90, 180 or 270 degrees counter-clockwise.
 type Rotate struct {
 	Angle string `json:"angle,omitempty"`
 }
 
-// Name returns the name of the filter, which is also the directive used in the image filter block.
-func (ff RotateFactory) Name() string { return "rotate" }
-
-// New initialises and returns a configured Rotate instance.
+// UnmarshalCaddyfile configures the Rotate instance.
 //
 // Syntax:
 //
@@ -33,28 +27,21 @@ func (ff RotateFactory) Name() string { return "rotate" }
 //
 // angle is one of the following: 0, 90, 180, 270 (0 is valid, but nothing will be done to the
 // image).
-func (ff RotateFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) < 1 {
-		return nil, imagefilter.ErrTooFewArgs
+func (f *Rotate) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() > 1 {
+		return imagefilter.ErrTooManyArgs
 	}
-	if len(args) > 1 {
-		return nil, imagefilter.ErrTooManyArgs
+	if !d.NextArg() {
+		return imagefilter.ErrTooFewArgs
 	}
-	return Rotate{Angle: args[0]}, nil
-}
 
-// Unmarshal decodes JSON data and returns a Rotate instance.
-func (ff RotateFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Rotate{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
-	}
-	return filter, nil
+	f.Angle = d.Val()
+
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Rotate) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Rotate) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	angleRepl := repl.ReplaceAll(f.Angle, "")
 	angle, err := strconv.Atoi(angleRepl)
 	if err != nil {
@@ -75,13 +62,21 @@ func (f Rotate) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error
 	}
 }
 
+// CaddyModule returns the Caddy module information.
+func (Rotate) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.rotate",
+		New: func() caddy.Module { return new(Rotate) },
+	}
+}
+
 // init registers the image filter.
 func init() {
-	imagefilter.Register(RotateFactory{})
+	caddy.RegisterModule(Rotate{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*RotateFactory)(nil)
-	_ imagefilter.Filter        = (*Rotate)(nil)
+	_ imagefilter.Filter    = (*Rotate)(nil)
+	_ caddyfile.Unmarshaler = (*Rotate)(nil)
 )

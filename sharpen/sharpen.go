@@ -1,29 +1,23 @@
 package sharpen
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"strconv"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/disintegration/imaging"
-	imagefilter "github.com/ueffel/caddy-imagefilter"
+	imagefilter "github.com/ueffel/caddy-imagefilter/v2"
 )
-
-// SharpenFactory creates Sharpen instances.
-type SharpenFactory struct{}
 
 // Sharpen produces a sharpened version of the image.
 type Sharpen struct {
 	Sigma string `json:"sigma,omitempty"`
 }
 
-// Name returns the name if the filter, which is also the directive used in the image filter block.
-func (ff SharpenFactory) Name() string { return "sharpen" }
-
-// New initialises and returns a Sharpen instance.
+// UnmarshalCaddyfile configures the Sharpen instance.
 //
 // Syntax:
 //
@@ -33,29 +27,19 @@ func (ff SharpenFactory) Name() string { return "sharpen" }
 //
 // sigma must be a positive floating point number and indicates how much the image will be
 // sharpened. Default is 1.
-func (ff SharpenFactory) New(args ...string) (imagefilter.Filter, error) {
-	if len(args) > 1 {
-		return nil, imagefilter.ErrTooManyArgs
+func (f *Sharpen) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	if d.CountRemainingArgs() > 1 {
+		return imagefilter.ErrTooManyArgs
 	}
-	var sigma string
-	if len(args) == 1 {
-		sigma = args[0]
-	}
-	return Sharpen{Sigma: sigma}, nil
-}
 
-// Unmarshal decodes JSON data and returns a Sharpen instance.
-func (ff SharpenFactory) Unmarshal(data []byte) (imagefilter.Filter, error) {
-	filter := Sharpen{}
-	err := json.Unmarshal(data, &filter)
-	if err != nil {
-		return nil, err
+	if d.NextArg() {
+		f.Sigma = d.Val()
 	}
-	return filter, nil
+	return nil
 }
 
 // Apply applies the image filter to an image and returns the new image.
-func (f Sharpen) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
+func (f *Sharpen) Apply(repl *caddy.Replacer, img image.Image) (image.Image, error) {
 	var err error
 	var sigma float64
 	sigmaRepl := repl.ReplaceAll(f.Sigma, "")
@@ -75,13 +59,21 @@ func (f Sharpen) Apply(repl *caddy.Replacer, img image.Image) (image.Image, erro
 	return imaging.Sharpen(img, sigma), nil
 }
 
+// CaddyModule returns the Caddy module information.
+func (Sharpen) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID:  "http.handlers.image_filter.filter.sharpen",
+		New: func() caddy.Module { return new(Sharpen) },
+	}
+}
+
 // init registers the image filter.
 func init() {
-	imagefilter.Register(SharpenFactory{})
+	caddy.RegisterModule(Sharpen{})
 }
 
 // Interface guards.
 var (
-	_ imagefilter.FilterFactory = (*SharpenFactory)(nil)
-	_ imagefilter.Filter        = (*Sharpen)(nil)
+	_ imagefilter.Filter    = (*Sharpen)(nil)
+	_ caddyfile.Unmarshaler = (*Sharpen)(nil)
 )
