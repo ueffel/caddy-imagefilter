@@ -12,7 +12,7 @@ Supported formats are:
 * WEBP (only input)
 
 There is currently no pure go WEBP library, that can encode (not just decode) WEBP images (maybe
-[someday](https://github.com/golang/go/issues/45121)). Therefore images in WEBP will be encoded as
+[someday](https://github.com/golang/go/issues/45121)). Therefore, images in WEBP will be encoded as
 PNG as fallback.
 
 It's recommended to keep transformed images in a cache to improve response times and don't do
@@ -20,12 +20,12 @@ transformation over and over again.
 
 ## Changes in `v2`
 
-The version of the module got some internal refactoring so the implemented image filters are
-actually caddy modules. It makes the whole archicture more in line with how the extensibility should
-work in caddy.
+The version of the module got some internal refactoring, so the implemented image filters are
+actually caddy modules. It makes the whole architecture more in line with how the extensibility
+should work in caddy.
 
 If you are using the module the only thing that changes is the installation. The configuration via
-caddyfile is working exactly the same.
+Caddyfile is working exactly the same.
 
 ## Installation
 
@@ -98,7 +98,7 @@ image_filter [<matcher>] {
   * `-1`: no compression
   * `-2`: fastest compression
   * `-3`: best compression
-* **max_concurrent** determines how many request can be served concurrently. This is intended to
+* **max_concurrent** determines how many requests can be served concurrently. This is intended to
   reduce excessive cpu/memory usage for image transformations by limiting the number of parallel
   calculations. Any value less or equal `0` means no limit. Default is `0`.
 * **<filters...>** is a list of filters with their corresponding arguments, that are applied in
@@ -168,7 +168,7 @@ image_filter {
 }
 ```
 
-You can go crazy and combine many filters. (But no more than 9999, which should quite sufficient or
+You can go crazy and combine many filters. (But no more than 9999, which should quite sufficient, or
 you're doing something seriously wrong)
 
 ### Default filters
@@ -214,7 +214,7 @@ Installation: `--with github.com/ueffel/caddy-imagefilter/v2/fit`
 
 #### flip
 
-Flip flips (mirrors) a image vertically or horizontally.
+Flip flips (mirrors) an image vertically or horizontally.
 
 Syntax:
 
@@ -250,7 +250,7 @@ Installation: `--with github.com/ueffel/caddy-imagefilter/v2/resize`
 
 #### rotate
 
-Rotate rotates a image 90, 180 or 270 degrees counter-clockwise.
+Rotate rotates an image 90, 180 or 270 degrees counter-clockwise.
 
 Syntax:
 
@@ -303,7 +303,7 @@ Installation: `--with github.com/ueffel/caddy-imagefilter/v2/blur`
 
 #### grayscale
 
-Grayscale produces a grayscaled version of the image.
+Grayscale produces a gray scaled version of the image.
 
 Syntax:
 
@@ -346,7 +346,7 @@ Parameters:
   counter-clockwise.
 * **color** is the color which is used to fill uncovered areas after the rotation. Supported formats
   are:
-  * `"#FFAADD"` (in quotes because otherwise it will be a comment in a caddyfile)
+  * `"#FFAADD"` (in quotes because otherwise it will be a comment in a Caddyfile)
   * `rgb(255,170,221)`
   * `rgba(255,170,221,0.5)`
   * `transparent`, `black`, `white`, `blue` or about 140 more
@@ -427,4 +427,4 @@ image returned. It's recommended to have all configure-parameters as strings, so
 they can contain caddy placeholders. Before applying the filter the placeholders
 should be replaced with `caddy.Replacer`'s `ReplaceAll`.
 
-Have a look at the default filters for implementation pointers.
+Take a look at the default filters for implementation pointers.
