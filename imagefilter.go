@@ -13,7 +13,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
+	"git.sr.ht/~jackmordaunt/go-libwebp/webp"
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig"
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
@@ -342,11 +344,15 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 		reqImg = newImg
 	}
 
-	format, err := imaging.FormatFromExtension(formatName)
-	if err != nil {
-		img.logger.Info("not supported format, falling back to png", zap.String("format", formatName))
-		format = imaging.PNG
-		formatName = "png"
+	var format imaging.Format
+	isWebp := strings.EqualFold(formatName, "webp")
+	if !isWebp {
+		format, err = imaging.FormatFromExtension(formatName)
+		if err != nil {
+			img.logger.Info("not supported format, falling back to png", zap.String("format", formatName))
+			format = imaging.PNG
+			formatName = "png"
+		}
 	}
 
 	if w.Header().Get("Content-Type") == "" {
@@ -364,7 +370,11 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 		return r.Context().Err()
 	}
 
-	err = imaging.Encode(w, reqImg, format, img.encodingOpts...)
+	if isWebp {
+		err = webp.Encode(w, reqImg)
+	} else {
+		err = imaging.Encode(w, reqImg, format, img.encodingOpts...)
+	}
 	if err != nil {
 		img.logger.Error("failed to encode image", zap.Error(err))
 	}
