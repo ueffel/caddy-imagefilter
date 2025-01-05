@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"git.sr.ht/~jackmordaunt/go-libwebp/webp"
+	"github.com/HugoSmits86/nativewebp"
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig"
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
@@ -371,7 +371,7 @@ func (img *ImageFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 	}
 
 	if isWebp {
-		err = webp.Encode(w, reqImg)
+		err = nativewebp.Encode(w, reqImg)
 	} else {
 		err = imaging.Encode(w, reqImg, format, img.encodingOpts...)
 	}
