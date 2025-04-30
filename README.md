@@ -414,8 +414,8 @@ http://:9000 { # internal address only accessable from the server itself to tran
 }
 ```
 
-This could also extended to limit the load because of image filtering by using rate limiting with
-this module <https://github.com/mholt/caddy-ratelimit>
+This could also extend to limit the load because of image filtering by using rate limiting with this
+module <https://github.com/mholt/caddy-ratelimit>
 
 ## Write your own filter
 
